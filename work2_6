@@ -1,0 +1,53 @@
+#include <iostream>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <vector>
+using namespace cv;
+using namespace std;
+int main(){
+    Mat src=imread("/Users/apple/Desktop/media_tech/erzhi50.bmp");
+    Mat dst;
+    cvtColor(src, dst, CV_RGB2GRAY);
+    //src=dst;
+    vector<vector<Point>> contours;
+    vector<Vec4i> hierarchy;
+    
+    erode(dst,dst,Mat(5,5,MORPH_RECT),Point(0,0),1);
+    imwrite("/Users/apple/Desktop/media_tech/work2_6/erode.jpg",dst);
+    
+    dilate(dst,dst,Mat(5,5,MORPH_RECT),Point(0,0),1);
+    imwrite("/Users/apple/Desktop/media_tech/work2_6/dilate.jpg",dst);
+
+    morphologyEx(dst,dst,MORPH_OPEN,Mat(5,5,MORPH_RECT),Point(0,0),1);
+    imwrite("/Users/apple/Desktop/media_tech/work2_6/open.jpg",dst);
+    
+    morphologyEx(dst,dst,MORPH_CLOSE,Mat(5,5,MORPH_RECT),Point(0,0),1);
+    imwrite("/Users/apple/Desktop/media_tech/work2_6/close.jpg",dst);
+    
+    //imshow("dst",dst);
+    
+    findContours(dst, contours , hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+    Mat result(dst.size(),CV_8U,Scalar(0));
+    int index=0,secindex=0;
+    double area,maxArea(0),secArea(0);
+    for(int i=0;i<contours.size();i++){
+        area=contourArea(Mat(contours[i]));
+        if(area>maxArea){
+            secArea=maxArea;
+            maxArea=area;
+            secindex=index;
+            index=i;
+        }
+    }
+    drawContours(result, contours, index, Scalar(255), CV_FILLED);
+    drawContours(result, contours, secindex, Scalar(255),CV_FILLED);
+    
+    
+    namedWindow("Con");
+    imshow("Con", result);
+    imwrite("/Users/apple/Desktop/media_tech/work2_6/contours.jpg",result);
+    
+    waitKey();
+    
+    return 0;
+}
