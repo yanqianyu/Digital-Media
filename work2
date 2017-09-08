@@ -1,0 +1,97 @@
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+using namespace std;
+using namespace cv;
+void getFromCamera(){
+    cvNamedWindow("win");
+    CvCapture* capture=cvCreateCameraCapture(0);
+    IplImage* frame;
+    int count=5;
+    char file_name[100];
+    while(1){
+        frame=cvQueryFrame(capture);
+        
+        if(!frame)
+            break;
+        cvShowImage("win", frame);//实时显示
+        char c=cvWaitKey(20);
+        
+        if(c==27)
+            break;
+        else if(c=='c'){
+            if(count>0){
+                sprintf(file_name,"/Users/apple/Desktop/media_tech/work2/%d.jpg",5-count);
+                cvSaveImage(file_name, frame);//截图保存
+                count--;
+            }
+        }
+    }
+    cvReleaseCapture(&capture);
+    cvDestroyWindow("win");
+}
+void getFromAVI(){
+    char filename[50];
+    cvNamedWindow("win");
+    CvCapture* capture=cvCreateFileCapture("/Users/apple/Desktop/01.avi");
+    if(capture==NULL) {
+        return ;
+    }
+    IplImage* frame;
+    int count=5;
+    while(1){
+        frame=cvQueryFrame(capture);
+        if(!frame)
+            return ;
+        cvShowImage("win", frame);
+        char c=cvWaitKey(20);
+        if(c==27)
+            break;
+        else if(c=='c'){
+            if(count>0){
+                sprintf(filename,"/Users/apple/Desktop/media_tech/work2/%d.jpg",5-count);
+                cvSaveImage(filename, frame);
+                count--;
+            }
+        }
+    }
+    cvReleaseCapture(&capture);
+    cvDestroyWindow("win");
+    return ;
+}
+void rotate(){
+    Mat image=imread("/Users/apple/Desktop/lena.jpg");
+    if(image.empty()){
+        return ;
+    }
+    
+    Point2f center=Point2f(image.cols/2,image.rows/2);
+    //旋转中心
+    
+    double angle=30;//旋转角度
+    double scale=0.5;//缩放尺度
+    
+    Mat rotateMat;
+    rotateMat=getRotationMatrix2D(center, angle, scale);
+    
+    Mat rotateImg;
+    warpAffine(image, rotateImg, rotateMat, image.size());
+    
+    namedWindow( "original" );
+    namedWindow( "after" );
+    
+    while(1){
+        imshow("original",image);
+        imshow("after",rotateImg);
+        char c=waitKey();
+        if(c==27){
+            break;
+        }
+    }
+    cvDestroyAllWindows();
+}
+int main(){
+    //getFromAVI();
+    rotate();
+    return 0;
+}
