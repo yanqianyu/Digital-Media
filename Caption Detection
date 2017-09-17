@@ -1,0 +1,184 @@
+//
+//  main.cpp
+//  CaptionDetection
+//
+//  Created by 严倩羽 on 2017/9/16.
+//  Copyright © 2017年 apple. All rights reserved.
+//
+
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <list>
+#include <opencv2/highgui/highgui.hpp>
+using namespace std;
+using namespace cv;
+
+vector<CvRect> hasCaption(Mat image){
+    
+    /*Mat src,dst;
+    //cvConvert(&src, image);
+    src=cvarrToMat(image);
+    //中值滤波
+    medianBlur(src,dst, 3);
+    //灰度
+    Mat gray;
+    cvtColor(dst, gray, CV_BGR2GRAY);
+    //二值化
+    Mat binary;
+    threshold(gray, binary, 0, 255, CV_THRESH_OTSU);
+    //Sobel边缘检测
+    Mat sobel;
+    Sobel(binary, sobel, binary.depth(), 1, 1);
+    */
+    //投影
+    int perPixelValue=0;
+    int width=image.cols;
+    int height=image.rows;
+    
+    int* projectValArry=new int[height];//投影信息
+    memset(projectValArry,0,height*4);
+    for(int i=0;i<height;i++){
+        for(int j=0;j<width;j++){
+            perPixelValue = image.at<uchar>(i, j);
+            if(perPixelValue==255){//白色
+                projectValArry[i]++;
+            }
+        }
+    }
+    int max=0;
+    for(int i=0;i<height;i++){
+        if(max<projectValArry[i])
+            max=projectValArry[i];
+    }
+    //Mat horizonMat(height,max,CV_8UC1);
+
+    //根据投影值识别分割点
+    //vector<Mat> roiList;
+    vector<CvRect> rows;
+    int startIndex=0;
+    int endIndex=0;
+    bool inLine=false;
+    for(int i=0;i<height;i++){
+        if(!inLine&&projectValArry[i]>40){
+            //进入字符区
+            inLine=true;
+            startIndex=i;
+        }
+        else if((i-startIndex>5)&&projectValArry[i]<10&&inLine){
+            inLine=false;
+            endIndex=i;
+            //忽略高度过小的行
+            if(endIndex-startIndex>10){
+                CvRect rect(0,startIndex,image.cols,endIndex-startIndex);
+                //从原图中截取有图像的区域
+                rows.push_back(rect);
+            }
+        }
+    }
+    delete [] projectValArry;
+    return rows;
+}
+
+vector<CvRect> GetBlocks(Mat src,int rowY){
+    vector<CvRect> blocks;
+    int width=src.cols;
+    int height=src.rows;
+    int perPixelValue=0;
+    int* projectValArry=new int[width];
+    memset(projectValArry, 0, width*4);
+    
+    cvtColor(src, src, CV_BGR2GRAY);
+    //二值化
+    threshold(src, src, 0, 255, CV_THRESH_OTSU);
+    //Sobel边缘检测
+    Sobel(src, src, src.depth(), 1, 1);
+
+    Mat element=getStructuringElement(MORPH_RECT, Size(3,1),Point(0,0));
+    dilate(src, src, element);
+    for(int i=0;i<width;i++){
+        for(int j=0;j<height;j++){
+            perPixelValue = src.at<uchar>(j, i);
+            if(perPixelValue==255){//白色
+                projectValArry[i]++;
+            }
+        }
+    }
+
+    bool inBlock=false;
+    int startindex=0;
+    int endindex=0;
+    for(int i=0;i<width;i++){
+        if(!inBlock&&projectValArry[i]>10){
+            inBlock=true;
+            startindex=i;
+        }
+        else if(i-startindex>=10&&inBlock&&projectValArry[i]<2){
+            inBlock=false;
+            endindex=i;
+            CvRect rect(startindex,rowY,endindex-startindex,height);
+            blocks.push_back(rect);
+        }
+    }
+    return blocks;
+}
+int main(){
+    //获取字幕帧
+    CvCapture *capture;
+    capture=cvCreateFileCapture("/Users/apple/Desktop/source/0001.avi");
+    assert(capture!=NULL);
+    
+    IplImage* frame;
+    
+    int n=1;
+    char *cstr=new char[20];
+    while(1){
+        frame=cvQueryFrame(capture);
+        if(!frame)
+            break;
+        
+        cvNamedWindow("Caption frame",CV_WINDOW_AUTOSIZE);
+        
+        Mat src,dst;
+        //cvConvert(&src, image);
+        src=cvarrToMat(frame);
+        //中值滤波
+        medianBlur(src,dst, 3);
+        //灰度
+        Mat gray;
+        cvtColor(dst, gray, CV_BGR2GRAY);
+        //二值化
+        Mat binary;
+        threshold(gray, binary, 0, 255, CV_THRESH_OTSU);
+        //Sobel边缘检测
+        Mat sobel;
+        Sobel(binary, sobel, binary.depth(), 1, 1);
+       
+        vector<CvRect> result1=hasCaption(sobel);
+        
+        vector<CvRect> result2;
+        for(int i=0;i<result1.size();i++){
+            vector<CvRect> blocks=GetBlocks(dst.rowRange(result1[i].y,result1[i].y+result1[i].height+1), result1[i].y);
+            //roeRange取左不取右
+            result2.insert(result2.end(), blocks.begin(),blocks.end());
+            
+            sprintf(cstr, "%s%d%s","/Users/apple/Desktop/source/images/image",n,".jpg");
+            n++;
+        }
+        for(int i=0;i<result2.size();i++){
+            //cvSetImageROI(frame, result2[i]);
+            //DrawRect(frame,result2[i]);
+            cvRectangle(frame, cvPoint(result2[i].x, result2[i].y), cvPoint(result2[i].x+result2[i].width, result2[i].y+result2[i].height),cvScalar(255,0,0));
+        }
+        cvShowImage("Caption frame", frame);
+        
+        char c=cvWaitKey(33);
+        
+        if(c==27)
+            break;
+        
+    }
+    cvReleaseCapture(&capture);
+    //cvReleaseImage(&frame);
+    cvDestroyAllWindows();
+    return 0;
+}
